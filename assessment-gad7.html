@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GAD-7 Anxiety Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="assessments.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="patient-dashboard.html" style="color: var(--secondary);">← Back</a>
+        <h2>GAD-7 (Anxiety Assessment)</h2>
+        <p>Over the last 2 weeks, how often have you been bothered by the following problems?</p>
+        <div id="questions"></div>
+        <button class="btn" onclick="collectAnswers()">Submit Assessment</button>
+    </div>
+    <script>
+        const qs = [
+            "Feeling nervous, anxious, or on edge",
+            "Not being able to stop or control worrying",
+            "Worrying too much about different things",
+            "Trouble relaxing",
+            "Being so restless that it is hard to sit still",
+            "Becoming easily annoyed or irritable",
+            "Feeling afraid as if something awful might happen"
+        ];
+        
+        const div = document.getElementById('questions');
+        qs.forEach((q, i) => {
+            div.innerHTML += `
+                <div class="card"><p>${i+1}. ${q}</p>
+                <select id="q${i}">
+                    <option value="0">Not at all</option>
+                    <option value="1">Several days</option>
+                    <option value="2">More than half the days</option>
+                    <option value="3">Nearly every day</option>
+                </select></div>`;
+        });
+
+        function collectAnswers() {
+            const ans = qs.map((_, i) => document.getElementById(`q${i}`).value);
+            submitTest('GAD-7', ans);
+        }
+    </script>
+</body>
+</html>

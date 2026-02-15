@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PSS-10 Stress Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="assessments.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="patient-dashboard.html" style="color: var(--secondary);">← Back</a>
+        <h2>PSS-10 (Perceived Stress Scale)</h2>
+        <p>In the last month, how often have you felt...</p>
+        <div id="questions"></div>
+        <button class="btn" onclick="collectAnswers()">Submit Assessment</button>
+    </div>
+    <script>
+        const qs = [
+            "Upset because of something that happened unexpectedly?",
+            "Unable to control important things in your life?",
+            "Nervous and 'stressed'?",
+            "Confident about your ability to handle personal problems? (Reverse)",
+            "That things were going your way? (Reverse)",
+            "Unable to cope with all the things you had to do?",
+            "Able to control irritations in your life? (Reverse)",
+            "That you were on top of things? (Reverse)",
+            "Angered because of things that were outside of your control?",
+            "Difficulties were piling up so high you could not overcome them?"
+        ];
+        
+        const div = document.getElementById('questions');
+        qs.forEach((q, i) => {
+            div.innerHTML += `
+                <div class="card"><p>${i+1}. ${q}</p>
+                <select id="q${i}">
+                    <option value="0">Never</option>
+                    <option value="1">Almost Never</option>
+                    <option value="2">Sometimes</option>
+                    <option value="3">Fairly Often</option>
+                    <option value="4">Very Often</option>
+                </select></div>`;
+        });
+
+        function collectAnswers() {
+            const ans = qs.map((_, i) => document.getElementById(`q${i}`).value);
+            submitTest('PSS-10', ans);
+        }
+    </script>
+</body>
+</html>

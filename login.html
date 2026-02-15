@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+</head>
+<body>
+    <div class="container" style="max-width: 450px; margin-top: 4rem;">
+        <div class="card text-center">
+            <h2>Welcome Back</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Sign in to continue</p>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="pass" placeholder="Password">
+            <button class="btn" style="width: 100%; margin-top: 0.5rem;" onclick="login(document.getElementById('email').value, document.getElementById('pass').value)">Login</button>
+        </div>
+    </div>
+</body>
+</html>

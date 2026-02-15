@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Take Custom Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="patient.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="patient-dashboard.html" class="btn btn-secondary">← Back</a>
+        <h2 id="testTitle">Loading Test...</h2>
+        <div id="testContent"></div>
+        <button class="btn" onclick="submitCustomTest()" style="margin-top: 20px;">Submit Test</button>
+    </div>
+    <script>
+        checkSession();
+        initTest();
+    </script>
+</body>
+</html>

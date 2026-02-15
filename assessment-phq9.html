@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PHQ-9</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="assessments.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>PHQ-9 Assessment</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Please answer each question based on how often you've experienced these symptoms over the past 2 weeks.</p>
+        <div id="questions"></div>
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn" style="padding: 1rem 3rem; font-size: 1.125rem;" onclick="collectAnswers()">Submit Assessment</button>
+        </div>
+    </div>
+    <script>
+        const qs = [
+            "Little interest or pleasure in doing things", "Feeling down, depressed, or hopeless",
+            "Trouble falling or staying asleep", "Feeling tired or having little energy",
+            "Poor appetite or overeating", "Feeling bad about yourself",
+            "Trouble concentrating", "Moving/speaking slowly or too fast",
+            "Thoughts that you would be better off dead"
+        ];
+        
+        const div = document.getElementById('questions');
+        qs.forEach((q, i) => {
+            div.innerHTML += `
+                <div class="card"><p>${i+1}. ${q}</p>
+                <select id="q${i}">
+                    <option value="0">Not at all</option><option value="1">Several days</option>
+                    <option value="2">More than half</option><option value="3">Nearly every day</option>
+                </select></div>`;
+        });
+
+        function collectAnswers() {
+            const ans = qs.map((_, i) => document.getElementById(`q${i}`).value);
+            submitTest('PHQ-9', ans);
+        }
+    </script>
+</body>
+</html>

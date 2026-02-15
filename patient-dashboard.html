@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="patient.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header-section">
+            <h2>My Wellness</h2>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="card mood-container">
+            <h3>How are you feeling?</h3>
+            <span id="emoji" class="emoji-display">😐</span>
+            <input type="range" id="moodRange" min="1" max="5" value="3" oninput="updateMoodUI(this.value)">
+            <input type="text" id="moodNote" placeholder="Add a note (optional)">
+            <button class="btn" onclick="logMood()">Log Mood</button>
+        </div>
+
+        <h3>Assessments</h3>
+        <div class="grid">
+            <a href="assessment-phq9.html" class="card">
+                <h4>PHQ-9 (Depression)</h4>
+                <p>Take this test →</p>
+            </a>
+            <a href="assessment-gad7.html" class="card">
+                <h4>GAD-7 (Anxiety)</h4>
+                <p>Take this test →</p>
+            </a>
+            <a href="assessment-pss10.html" class="card">
+                <h4>PSS-10 (Stress)</h4>
+                <p>Take this test →</p>
+            </a>
+        </div>
+
+        <div class="card" style="border-left: 5px solid var(--secondary); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div style="flex: 1; min-width: 200px;">
+                <h3>💤 Sleep Tracker</h3>
+                <p>Log your rest to help track recovery.</p>
+            </div>
+            <a href="sleep.html" class="btn">Log Sleep</a>
+        </div>
+
+        <div style="margin-top: 2rem;">
+            <h3 style="color: var(--secondary);">✨ Extra Tests from Doctor</h3>
+            <div id="assignedTestsList" class="grid">
+                <p style="color: var(--text-light);">Loading...</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        checkSession();
+        loadAssignedTests();
+    </script>
+</body>
+</html>

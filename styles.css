@@ -1,0 +1,663 @@
+/* ============================================
+   MODERN UI - LAVENDER/PURPLE THEME
+   Enhanced with better spacing, shadows, typography, and responsiveness
+   ============================================ */
+
+:root {
+    --bg-color: #F6F0FA;
+    --card-bg: #FFFFFF;
+    --text-main: #4B2C5D;
+    --text-secondary: #6B5B7D;
+    --text-light: #8B7A9D;
+    --primary-grad: linear-gradient(135deg, #C3B1E1, #F7C6E0);
+    --primary-grad-hover: linear-gradient(135deg, #B5A0D5, #F0B8D4);
+    --secondary: #7A4BA0;
+    --secondary-hover: #6B3D8F;
+    --lavender: #C3B1E1;
+    --soft-pink: #F7C6E0;
+    --light-gray: #F4F4F8;
+    --border-color: #E0D5E8;
+    --shadow-sm: 0 2px 8px rgba(75, 44, 93, 0.08);
+    --shadow-md: 0 4px 16px rgba(75, 44, 93, 0.12);
+    --shadow-lg: 0 8px 24px rgba(75, 44, 93, 0.15);
+    --shadow-glow: 0 0 20px rgba(195, 177, 225, 0.3);
+    --alert-red: #ffadad;
+    --alert-orange: #ffd6a5;
+    --alert-yellow: #fdffb6;
+    --alert-green: #caffbf;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    background: linear-gradient(135deg, #F6F0FA 0%, #FDF7FB 100%);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--secondary);
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.02em;
+}
+
+h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 1.5rem 0;
+    letter-spacing: -0.01em;
+}
+
+h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 1rem 0;
+}
+
+h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 0.75rem 0;
+}
+
+p {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    line-height: 1.7;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* ============================================
+   CONTAINER & LAYOUT
+   ============================================ */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .container {
+        padding: 2.5rem 2rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .container {
+        padding: 3rem 2.5rem;
+    }
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+
+.card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(195, 177, 225, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-grad);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card:hover::before {
+    opacity: 1;
+}
+
+.card a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.card a:hover {
+    color: var(--secondary);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+    background: var(--primary-grad);
+    border: none;
+    color: white;
+    padding: 0.875rem 2rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.01em;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md), var(--shadow-glow);
+    background: var(--primary-grad-hover);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+    background: var(--secondary);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+    background: var(--secondary-hover);
+    box-shadow: var(--shadow-md), 0 0 20px rgba(122, 75, 160, 0.3);
+}
+
+.btn:focus {
+    outline: 2px solid var(--lavender);
+    outline-offset: 2px;
+}
+
+/* ============================================
+   FORM ELEMENTS
+   ============================================ */
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    margin: 0.5rem 0 1rem 0;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--card-bg);
+    color: var(--text-main);
+    transition: all 0.3s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--lavender);
+    box-shadow: 0 0 0 4px rgba(195, 177, 225, 0.15);
+    background: #FFFFFF;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+    border-color: var(--lavender);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
+}
+
+/* ============================================
+   GRID LAYOUTS
+   ============================================ */
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.75rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+    }
+}
+
+/* ============================================
+   BADGES & ALERTS
+   ============================================ */
+
+.badge {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #333;
+    display: inline-block;
+    box-shadow: var(--shadow-sm);
+}
+
+.bg-red {
+    background: var(--alert-red);
+}
+
+.bg-orange {
+    background: var(--alert-orange);
+}
+
+.bg-yellow {
+    background: var(--alert-yellow);
+}
+
+.bg-green {
+    background: var(--alert-green);
+}
+
+/* ============================================
+   MOOD CONTAINER
+   ============================================ */
+
+.mood-container {
+    text-align: center;
+    padding: 2.5rem 2rem;
+}
+
+.mood-container h3 {
+    margin-bottom: 1.5rem;
+    color: var(--secondary);
+}
+
+.emoji-display {
+    font-size: 4rem;
+    display: block;
+    margin: 1.5rem 0;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 4px 8px rgba(75, 44, 93, 0.1));
+}
+
+.emoji-display:hover {
+    transform: scale(1.1);
+}
+
+input[type="range"] {
+    width: 90%;
+    max-width: 500px;
+    margin: 1.5rem auto;
+    height: 8px;
+    border-radius: 5px;
+    accent-color: var(--secondary);
+    cursor: pointer;
+}
+
+input[type="range"]:hover {
+    accent-color: var(--secondary-hover);
+}
+
+/* ============================================
+   CUSTOM TEST OPTIONS
+   ============================================ */
+
+.option-label {
+    display: block;
+    padding: 1rem 1.25rem;
+    margin: 0.75rem 0;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--card-bg);
+}
+
+.option-label:hover {
+    background: var(--light-gray);
+    border-color: var(--lavender);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+.option-label:has(input[type="radio"]:checked) {
+    background: linear-gradient(135deg, rgba(195, 177, 225, 0.1), rgba(247, 198, 224, 0.1));
+    border-color: var(--secondary);
+    box-shadow: var(--shadow-sm);
+}
+
+.option-label input[type="radio"] {
+    width: auto;
+    margin-right: 0.75rem;
+    accent-color: var(--secondary);
+    cursor: pointer;
+}
+
+/* ============================================
+   HEADER/NAVIGATION STYLES
+   ============================================ */
+
+header,
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+header h2,
+.header-section h2 {
+    margin: 0;
+    flex: 1;
+    min-width: 200px;
+}
+
+header .btn,
+.header-section .btn {
+    margin-left: 0.5rem;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    background: var(--card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+th,
+td {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background: linear-gradient(135deg, rgba(195, 177, 225, 0.1), rgba(247, 198, 224, 0.1));
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+tr:hover {
+    background: var(--light-gray);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================
+   LISTS
+   ============================================ */
+
+ul,
+ol {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+}
+
+li {
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+ul[style*="list-style:none"] {
+    list-style: none;
+    padding: 0;
+}
+
+ul[style*="list-style:none"] li {
+    padding: 1rem;
+    margin: 0.5rem 0;
+    background: var(--light-gray);
+    border-radius: 10px;
+    border-left: 4px solid var(--lavender);
+    transition: all 0.3s ease;
+}
+
+ul[style*="list-style:none"] li:hover {
+    background: rgba(195, 177, 225, 0.1);
+    transform: translateX(4px);
+}
+
+/* ============================================
+   HR / DIVIDERS
+   ============================================ */
+
+hr {
+    border: none;
+    border-top: 2px solid var(--border-color);
+    margin: 2.5rem 0;
+    opacity: 0.5;
+}
+
+/* ============================================
+   CANVAS / CHARTS
+   ============================================ */
+
+canvas {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+/* ============================================
+   MODAL / OVERLAY STYLES
+   ============================================ */
+
+.modal,
+.overlay {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 640px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.75rem;
+    }
+
+    h3 {
+        font-size: 1.25rem;
+    }
+
+    .container {
+        padding: 1.5rem 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.9375rem;
+        width: 100%;
+        text-align: center;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    header,
+    .header-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    header .btn,
+    .header-section .btn {
+        width: 100%;
+        margin: 0.5rem 0 0 0;
+    }
+
+    input[type="range"] {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        padding: 1.25rem;
+    }
+
+    .mood-container {
+        padding: 2rem 1.5rem;
+    }
+
+    .emoji-display {
+        font-size: 3rem;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }
+
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+
+.p-1 { padding: 0.5rem; }
+.p-2 { padding: 1rem; }
+.p-3 { padding: 1.5rem; }
+.p-4 { padding: 2rem; }
+
+.text-sm { font-size: 0.875rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card,
+.btn {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}

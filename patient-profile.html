@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Profile</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="gemini.js"></script>
+    <script src="charts-logic.js"></script>
+    <script src="records.js"></script>
+    <script src="doctor.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div style="margin-bottom: 1.5rem;">
+            <a href="doctor-dashboard.html" class="btn btn-secondary">← Back</a>
+        </div>
+        <h2 id="pName" style="margin-bottom: 2rem;">Loading...</h2>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>Trend Analysis</h3>
+                <canvas id="lineChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Mood Distribution</h3>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card" style="background: linear-gradient(135deg, rgba(247, 198, 224, 0.15), rgba(195, 177, 225, 0.15)); border: 2px solid rgba(247, 198, 224, 0.4);">
+            <h3>✨ AI Trend Summary</h3>
+            <p id="aiSummary" style="line-height: 1.8;">Generating insights...</p>
+        </div>
+
+        <hr>
+
+        <h2 style="color: var(--secondary); margin-top: 1rem;">💤 Sleep Analysis</h2>
+        <div class="grid">
+            <div class="card">
+                <h4>Sleep Duration (Hours)</h4>
+                <canvas id="sleepHoursChart"></canvas>
+            </div>
+            <div class="card">
+                <h4>Sleep Quality (1-5)</h4>
+                <canvas id="sleepQualityChart"></canvas>
+            </div>
+        </div>
+
+        <hr>
+        <h2 style="color: var(--secondary); margin-top: 1rem;">💊 Medication Management</h2>
+
+        <div class="grid">
+            <div class="card" style="border-top: 5px solid var(--soft-pink);">
+                <h3>Prescribe New Medication</h3>
+                <input type="text" id="medName" placeholder="Medication Name (e.g. Sertraline)">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <input type="text" id="medDose" placeholder="Dose (e.g. 50mg)" style="flex: 1; min-width: 150px;">
+                    <input type="text" id="medFreq" placeholder="Frequency (e.g. Daily AM)" style="flex: 1; min-width: 150px;">
+                </div>
+                <textarea id="medNotes" placeholder="Instructions/Side effects..."></textarea>
+                <button class="btn" onclick="addMedication()">Save Prescription</button>
+            </div>
+
+            <div class="card">
+                <h3>Active Medications</h3>
+                <ul id="medicationList" style="list-style:none; padding:0;">
+                    <li style="color:#888; font-style:italic;">Loading...</li>
+                </ul>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="grid">
+            <div class="card" style="border-top: 5px solid var(--secondary);">
+                <h3>💜 Clinical Notes</h3>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">Observations and session history</p>
+                <textarea id="clinicalNotes" style="height: 250px;" placeholder="Start typing session notes..."></textarea>
+                <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="saveRecord('notes')">Save Notes</button>
+            </div>
+
+            <div class="card" style="border-top: 5px solid var(--soft-pink);">
+                <h3>🌸 Treatment Plan</h3>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">Medications, therapy, and goals</p>
+                <textarea id="treatmentPlan" style="height: 250px;" placeholder="Outline the treatment plan..."></textarea>
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="saveRecord('plan')">Save Treatment Plan</button>
+            </div>
+        </div>
+
+        <hr>
+        <h2 style="color: var(--secondary);">🔮 Custom Test Results</h2>
+        <div id="customGraphsContainer" class="grid"></div>
+    </div>
+
+    <script>
+        async function init() {
+            await checkSession();
+            const pid = localStorage.getItem('current_patient');
+            
+            // Fetch Patient Info
+            const { data: p } = await window.sb.from('patients').select('name').eq('id', pid).single();
+            document.getElementById('pName').innerText = p.name;
+
+            // Fetch Data
+            const { data: tests } = await window.sb.from('assessments').select('*').eq('patient_id', pid).order('created_at');
+            const { data: moods } = await window.sb.from('mood_logs').select('*').eq('patient_id', pid).order('created_at');
+
+            // Process Data for Charts
+            const phq = tests.filter(t => t.test_type === 'PHQ-9').map(t => t.score);
+            const gad = tests.filter(t => t.test_type === 'GAD-7').map(t => t.score);
+            const pss = tests.filter(t => t.test_type === 'PSS-10').map(t => t.score);
+            const moodScores = moods.map(m => m.mood_score);
+
+            // Render
+            renderCharts(phq, gad, pss, moodScores);
+
+            // AI
+            const summary = await generateInsight(p.name, phq, gad, pss, moodScores);
+            document.getElementById('aiSummary').innerText = summary;
+
+            // Load Patient Records (Notes & Treatment Plan)
+            await loadPatientRecords();
+
+            // Load Sleep Charts and Medications
+            setTimeout(() => {
+                loadSleepCharts();
+                loadMedications();
+                loadCustomGraphs(pid);
+            }, 1000); // Small delay to ensure auth is ready
+        }
+        init();
+    </script>
+</body>
+</html>

@@ -365,22 +365,62 @@ async function loadCustomTests() {
 
 // Assign test to patient
 async function assignTestToPatient(testId) {
-    // 1. Get list of patients
-    const { data: patients } = await window.sb.from('patients').select('id, name');
-    
-    // 2. Create a simple prompt or custom modal to select a patient
-    const patientName = prompt("Enter exactly the name of the patient to assign this to:");
-    const target = patients.find(p => p.name === patientName);
+    try {
+        // 1. Get list of patients
+        const { data: patients, error: patError } = await window.sb.from('patients').select('id, name');
+        
+        if (patError || !patients || patients.length === 0) {
+            alert("Error loading patients: " + (patError?.message || "No patients found"));
+            return;
+        }
+        
+        // 2. Create a simple prompt or custom modal to select a patient
+        const patientName = prompt("Enter exactly the name of the patient to assign this to:\n\nAvailable patients:\n" + patients.map(p => p.name).join(", "));
+        
+        if (!patientName) {
+            return; // User cancelled
+        }
+        
+        const target = patients.find(p => p.name === patientName);
 
-    if (target) {
-        await window.sb.from('custom_test_assignments').insert([{
+        if (!target) {
+            alert("Patient not found. Please check the exact name.");
+            return;
+        }
+
+        // Check if already assigned
+        const { data: existing } = await window.sb.from('custom_test_assignments')
+            .select('id')
+            .eq('test_id', testId)
+            .eq('patient_id', target.id)
+            .eq('status', 'assigned')
+            .single();
+
+        if (existing) {
+            alert("This test is already assigned to " + target.name);
+            return;
+        }
+
+        const { error: insertError } = await window.sb.from('custom_test_assignments').insert([{
             test_id: testId,
             patient_id: target.id,
             status: 'assigned'
         }]);
-        alert("Test assigned to " + target.name);
-    } else {
-        alert("Patient not found.");
+
+        if (insertError) {
+            console.error("Assignment error:", insertError);
+            alert("Error assigning test: " + insertError.message);
+            return;
+        }
+
+        alert("✓ Test assigned to " + target.name);
+        // Reload the test list to show updated status
+        if (typeof loadCustomTests === 'function') {
+            loadCustomTests();
+        }
+    } catch (error) {
+        console.error("Error in assignTestToPatient:", error);
+        alert("Error: " + error.message);
     }
 }
 
@@ -418,55 +458,97 @@ async function loadCustomGraphs(patientId) {
     const container = document.getElementById('customGraphsContainer');
     if (!container) return;
 
-    // Get all custom tests
-    const { data: allTests } = await window.sb.from('custom_tests').select('id, test_name');
-    
-    if (!allTests || allTests.length === 0) {
-        container.innerHTML = "<p style='color:#666'>No custom tests available.</p>";
-        return;
-    }
-
-    // For each test, check if patient has results and render graph
-    for (const test of allTests) {
-        const { data: results } = await window.sb.from('custom_test_results')
-            .select('total_score, created_at, custom_test_assignments!inner(test_id, patient_id)')
-            .eq('custom_test_assignments.test_id', test.id)
-            .eq('custom_test_assignments.patient_id', patientId)
-            .order('created_at', { ascending: true });
-
-        if (!results || results.length === 0) continue;
-
-        const canvasId = `graph-${test.id}`;
+    try {
+        // Get all custom tests
+        const { data: allTests } = await window.sb.from('custom_tests').select('id, test_name');
         
-        container.innerHTML += `
-            <div class="card">
-                <h4>${test.test_name}</h4>
-                <canvas id="${canvasId}"></canvas>
-            </div>
-        `;
+        if (!allTests || allTests.length === 0) {
+            container.innerHTML = "<p style='color:#666'>No custom tests available.</p>";
+            return;
+        }
 
-        // Render chart after a small delay to ensure canvas is in DOM
-        setTimeout(() => {
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: results.map(r => new Date(r.created_at).toLocaleDateString()),
-                        datasets: [{
-                            label: 'Total Score',
-                            data: results.map(r => r.total_score),
-                            borderColor: '#B57EDC',
-                            tension: 0.4
-                        }]
-                    }
-                });
+        // For each test, check if patient has results and render graph
+        let hasResults = false;
+        
+        for (const test of allTests) {
+            // Try to fetch results with relationship first
+            const result1 = await window.sb.from('custom_test_results')
+                .select('id, total_score, created_at, custom_test_assignments!inner(id, test_id, patient_id)')
+                .eq('custom_test_assignments.test_id', test.id)
+                .eq('custom_test_assignments.patient_id', patientId)
+                .order('created_at', { ascending: true });
+
+            let results = result1.data;
+            
+            // Fallback: use separate queries if relationship fails
+            if (result1.error || !results) {
+                console.warn("Relationship query failed for test", test.id, "trying separate query");
+                
+                const { data: assignments } = await window.sb.from('custom_test_assignments')
+                    .select('id')
+                    .eq('test_id', test.id)
+                    .eq('patient_id', patientId);
+                
+                if (assignments && assignments.length > 0) {
+                    const assignmentIds = assignments.map(a => a.id);
+                    const { data: tmpResults } = await window.sb.from('custom_test_results')
+                        .select('total_score, created_at')
+                        .in('assignment_id', assignmentIds)
+                        .order('created_at', { ascending: true });
+                    
+                    results = tmpResults;
+                }
             }
-        }, 100);
-    }
-    
-    if (container.innerHTML.trim() === '') {
-        container.innerHTML = "<p style='color:#666'>No custom test results yet.</p>";
+
+            if (!results || results.length === 0) continue;
+
+            hasResults = true;
+            const canvasId = `graph-${test.id}`;
+            
+            container.innerHTML += `
+                <div class="card">
+                    <h4>${test.test_name}</h4>
+                    <canvas id="${canvasId}"></canvas>
+                </div>
+            `;
+
+            // Render chart after a small delay to ensure canvas is in DOM
+            setTimeout(() => {
+                const canvas = document.getElementById(canvasId);
+                if (canvas && typeof Chart !== 'undefined') {
+                    const ctx = canvas.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: results.map(r => new Date(r.created_at).toLocaleDateString()),
+                            datasets: [{
+                                label: 'Score',
+                                data: results.map(r => r.total_score),
+                                borderColor: '#B57EDC',
+                                backgroundColor: 'rgba(181, 126, 220, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: true }
+                            },
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
+                }
+            }, 100);
+        }
+        
+        if (!hasResults) {
+            container.innerHTML = "<p style='color:#666'>No custom test results yet.</p>";
+        }
+    } catch (error) {
+        console.error("Error loading custom graphs:", error);
+        container.innerHTML = "<p style='color:#d9534f'>Error loading test results: " + error.message + "</p>";
     }
 }

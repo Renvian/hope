@@ -80,14 +80,48 @@ async function loadAssignedTests() {
             return;
         }
 
-        const { data: assignments, error: assignError } = await window.sb.from('custom_test_assignments')
-            .select(`*, custom_tests(test_name)`)
+        // First try with relationship, if fails fall back to separate queries
+        let assignments = null;
+        let assignError = null;
+        
+        const result1 = await window.sb.from('custom_test_assignments')
+            .select(`id, test_id, status, created_at, custom_tests!inner(id, test_name)`)
             .eq('patient_id', patient.id)
             .eq('status', 'assigned');
+        
+        if (result1.error) {
+            console.warn("Relationship query failed, trying separate queries:", result1.error);
+            // Fallback: Get assignments then fetch test names separately
+            const { data: tmpAssignments, error: tmpError } = await window.sb.from('custom_test_assignments')
+                .select('id, test_id, status')
+                .eq('patient_id', patient.id)
+                .eq('status', 'assigned');
+            
+            if (tmpError) {
+                assignError = tmpError;
+            } else {
+                // Fetch test names for each assignment
+                const testIds = tmpAssignments.map(a => a.test_id);
+                if (testIds.length > 0) {
+                    const { data: tests } = await window.sb.from('custom_tests')
+                        .select('id, test_name')
+                        .in('id', testIds);
+                    
+                    assignments = tmpAssignments.map(assign => ({
+                        ...assign,
+                        custom_tests: tests.find(t => t.id === assign.test_id)
+                    }));
+                } else {
+                    assignments = [];
+                }
+            }
+        } else {
+            assignments = result1.data;
+        }
 
         if (assignError) {
             console.error("Assignments error:", assignError);
-            list.innerHTML = "<p style='color: var(--alert-red);'>Error loading assigned tests.</p>";
+            list.innerHTML = "<p style='color: var(--alert-red);'>Error loading assigned tests: " + assignError.message + "</p>";
             return;
         }
 
@@ -95,21 +129,21 @@ async function loadAssignedTests() {
             list.innerHTML = "<p style='color: var(--text-secondary);'>No custom tests assigned at the moment.</p>";
             return;
         }
+
+        list.innerHTML = '';
+        assignments.forEach(assign => {
+            const testName = assign.custom_tests?.test_name || 'Unknown Test';
+            list.innerHTML += `
+                <div class="card" style="cursor: pointer; text-decoration: none; color: inherit;" onclick="window.location.href='take-custom-test.html?assignmentId=${assign.id}'">
+                    <h4>${testName}</h4>
+                    <p>Click to start →</p>
+                </div>
+            `;
+        });
     } catch (error) {
         console.error("Load assigned tests error:", error);
-        list.innerHTML = "<p style='color: var(--alert-red);'>Error loading tests. Please refresh the page.</p>";
-        return;
+        list.innerHTML = "<p style='color: var(--alert-red);'>Error: " + error.message + "</p>";
     }
-
-    list.innerHTML = '';
-    assignments.forEach(assign => {
-        list.innerHTML += `
-            <div class="card" style="cursor: pointer; text-decoration: none; color: inherit;" onclick="window.location.href='take-custom-test.html?assignmentId=${assign.id}'">
-                <h4>${assign.custom_tests.test_name}</h4>
-                <p>Click to start →</p>
-            </div>
-        `;
-    });
 }
 
 // Initialize custom test taking page
@@ -123,75 +157,150 @@ async function initTest() {
         return;
     }
 
-    // 1. Fetch the assignment and the template details
-    const { data: assignment, error } = await window.sb.from('custom_test_assignments')
-        .select(`*, custom_tests(*, custom_test_questions(*), custom_test_options(*))`)
-        .eq('id', assignmentId).single();
+    try {
+        // 1. Fetch the assignment and the template details
+        let assignment = null;
+        let test = null;
+        
+        const result1 = await window.sb.from('custom_test_assignments')
+            .select(`id, test_id, status, custom_tests(id, test_name)`)
+            .eq('id', assignmentId).single();
 
-    if (error || !assignment) {
-        alert("Error loading test: " + (error?.message || "Test not found"));
-        window.location.href = 'patient-dashboard.html';
-        return;
-    }
+        if (result1.error || !result1.data) {
+            console.warn("Direct assignment query failed, trying step by step", result1.error);
+            throw new Error(result1.error?.message || "Test assignment not found");
+        }
 
-    const test = assignment.custom_tests;
-    document.getElementById('testTitle').innerText = test.test_name;
+        assignment = result1.data;
+        const testId = assignment.test_id || assignment.custom_tests?.id;
 
-    // 2. Build the Questions UI
-    const container = document.getElementById('testContent');
-    container.innerHTML = '';
+        if (!testId) {
+            throw new Error("Test ID not found");
+        }
 
-    test.custom_test_questions.forEach((q, qIdx) => {
-        let optionsHTML = test.custom_test_options.map(opt => `
-            <label class="option-label">
-                <input type="radio" name="q${qIdx}" value="${opt.score_value}" required>
-                ${opt.option_text} (${opt.score_value})
-            </label>
-        `).join('');
+        // Fetch full test details with questions and options
+        const { data: testData, error: testError } = await window.sb.from('custom_tests')
+            .select(`id, test_name, custom_test_questions(id, question_text), custom_test_options(id, option_text, score_value)`)
+            .eq('id', testId)
+            .single();
 
-        container.innerHTML += `
-            <div class="card" style="margin-bottom: 15px;">
-                <p><strong>${qIdx + 1}. ${q.question_text}</strong></p>
-                ${optionsHTML}
-            </div>
+        if (testError || !testData) {
+            // Fallback: Fetch test and separate queries for questions/options
+            const { data: basicTest } = await window.sb.from('custom_tests')
+                .select('id, test_name')
+                .eq('id', testId)
+                .single();
+            
+            if (!basicTest) throw new Error("Test not found");
+            
+            const { data: questions } = await window.sb.from('custom_test_questions')
+                .select('id, question_text')
+                .eq('test_id', testId);
+            
+            const { data: options } = await window.sb.from('custom_test_options')
+                .select('id, option_text, score_value')
+                .eq('test_id', testId);
+            
+            test = {
+                ...basicTest,
+                custom_test_questions: questions || [],
+                custom_test_options: options || []
+            };
+        } else {
+            test = testData;
+        }
+
+        if (!test) {
+            throw new Error("Failed to load test details");
+        }
+
+        document.getElementById('testTitle').innerText = test.test_name || 'Custom Test';
+
+        // 2. Build the Questions UI
+        const container = document.getElementById('testContent');
+        container.innerHTML = '';
+
+        if (!test.custom_test_questions || test.custom_test_questions.length === 0) {
+            container.innerHTML = '<p style="color: var(--alert-red);">No questions found for this test.</p>';
+            return;
+        }
+
+        if (!test.custom_test_options || test.custom_test_options.length === 0) {
+            container.innerHTML = '<p style="color: var(--alert-red);">No scoring options found for this test.</p>';
+            return;
+        }
+
+        test.custom_test_questions.forEach((q, qIdx) => {
+            let optionsHTML = test.custom_test_options.map(opt => `
+                <label class="option-label">
+                    <input type="radio" name="q${qIdx}" value="${opt.score_value}" required>
+                    ${opt.option_text} (${opt.score_value})
+                </label>
+            `).join('');
+
+            container.innerHTML += `
+                <div class="card" style="margin-bottom: 15px;">
+                    <p><strong>${qIdx + 1}. ${q.question_text}</strong></p>
+                    ${optionsHTML}
+                </div>
+            `;
+        });
+    } catch (error) {
+        console.error("Error initializing test:", error);
+        document.getElementById('testTitle').innerText = 'Error Loading Test';
+        document.getElementById('testContent').innerHTML = `
+            <p style="color: var(--alert-red); font-weight: bold;">Error: ${error.message}</p>
+            <p style="color: var(--text-secondary);">Please go back and try again.</p>
         `;
-    });
+    }
 }
 
 // Submit custom test
 async function submitCustomTest() {
-    const inputs = document.querySelectorAll('input[type="radio"]:checked');
-    
-    if (inputs.length === 0) {
-        alert("Please answer all questions");
-        return;
+    try {
+        const inputs = document.querySelectorAll('input[type="radio"]:checked');
+        
+        if (inputs.length === 0) {
+            alert("Please answer all questions");
+            return;
+        }
+
+        let totalScore = 0;
+        inputs.forEach(i => totalScore += parseInt(i.value));
+
+        const assignmentId = new URLSearchParams(window.location.search).get('assignmentId');
+
+        if (!assignmentId) {
+            alert("Error: Assignment ID not found");
+            return;
+        }
+
+        // Save results and mark as completed
+        const { error: resultError } = await window.sb.from('custom_test_results').insert([{
+            assignment_id: assignmentId,
+            total_score: totalScore
+        }]);
+
+        if (resultError) {
+            console.error("Result save error:", resultError);
+            alert("Error saving results: " + resultError.message);
+            return;
+        }
+
+        const { error: assignError } = await window.sb.from('custom_test_assignments')
+            .update({ status: 'completed', completed_at: new Date().toISOString() })
+            .eq('id', assignmentId);
+
+        if (assignError) {
+            console.error("Assignment update error:", assignError);
+            alert("Error updating assignment: " + assignError.message);
+            return;
+        }
+
+        alert(`Test Submitted! Total Score: ${totalScore}`);
+        window.location.href = 'patient-dashboard.html';
+    } catch (error) {
+        console.error("Error submitting test:", error);
+        alert("Error: " + error.message);
     }
-
-    let totalScore = 0;
-    inputs.forEach(i => totalScore += parseInt(i.value));
-
-    const assignmentId = new URLSearchParams(window.location.search).get('assignmentId');
-
-    // Save results and mark as completed
-    const { error: resultError } = await window.sb.from('custom_test_results').insert([{
-        assignment_id: assignmentId,
-        total_score: totalScore
-    }]);
-
-    if (resultError) {
-        alert("Error saving results: " + resultError.message);
-        return;
-    }
-
-    const { error: assignError } = await window.sb.from('custom_test_assignments')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', assignmentId);
-
-    if (assignError) {
-        alert("Error updating assignment: " + assignError.message);
-        return;
-    }
-
-    alert(`Test Submitted! Total Score: ${totalScore}`);
-    window.location.href = 'patient-dashboard.html';
 }

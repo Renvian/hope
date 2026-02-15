@@ -80,49 +80,52 @@ async function loadAssignedTests() {
             return;
         }
 
-        // First try with relationship, if fails fall back to separate queries
-        let assignments = null;
-        let assignError = null;
+        // Initialize assignments as empty array
+        let assignments = [];
         
+        // Try to get assignments with test relationship first
         const result1 = await window.sb.from('custom_test_assignments')
-            .select(`id, test_id, status, created_at, custom_tests!inner(id, test_name)`)
+            .select(`id, test_id, status, created_at, custom_tests(id, test_name)`)
             .eq('patient_id', patient.id)
             .eq('status', 'assigned');
         
         if (result1.error) {
             console.warn("Relationship query failed, trying separate queries:", result1.error);
-            // Fallback: Get assignments then fetch test names separately
+            
+            // Fallback: Get assignments separately
             const { data: tmpAssignments, error: tmpError } = await window.sb.from('custom_test_assignments')
                 .select('id, test_id, status')
                 .eq('patient_id', patient.id)
                 .eq('status', 'assigned');
             
             if (tmpError) {
-                assignError = tmpError;
-            } else {
+                console.error("Fallback query error:", tmpError);
+                list.innerHTML = "<p style='color: var(--alert-red);'>Error loading assigned tests: " + tmpError.message + "</p>";
+                return;
+            }
+            
+            if (tmpAssignments && tmpAssignments.length > 0) {
                 // Fetch test names for each assignment
                 const testIds = tmpAssignments.map(a => a.test_id);
-                if (testIds.length > 0) {
-                    const { data: tests } = await window.sb.from('custom_tests')
-                        .select('id, test_name')
-                        .in('id', testIds);
-                    
-                    assignments = tmpAssignments.map(assign => ({
-                        ...assign,
-                        custom_tests: tests.find(t => t.id === assign.test_id)
-                    }));
-                } else {
-                    assignments = [];
+                const { data: tests, error: testsError } = await window.sb.from('custom_tests')
+                    .select('id, test_name')
+                    .in('id', testIds);
+                
+                if (testsError) {
+                    console.error("Tests fetch error:", testsError);
+                    list.innerHTML = "<p style='color: var(--alert-red);'>Error loading test names: " + testsError.message + "</p>";
+                    return;
                 }
+                
+                assignments = tmpAssignments.map(assign => ({
+                    ...assign,
+                    custom_tests: tests ? tests.find(t => t.id === assign.test_id) : null
+                }));
+            } else {
+                assignments = [];
             }
-        } else {
+        } else if (result1.data) {
             assignments = result1.data;
-        }
-
-        if (assignError) {
-            console.error("Assignments error:", assignError);
-            list.innerHTML = "<p style='color: var(--alert-red);'>Error loading assigned tests: " + assignError.message + "</p>";
-            return;
         }
 
         if (!assignments || assignments.length === 0) {
@@ -132,7 +135,7 @@ async function loadAssignedTests() {
 
         list.innerHTML = '';
         assignments.forEach(assign => {
-            const testName = assign.custom_tests?.test_name || 'Unknown Test';
+            const testName = (assign.custom_tests?.test_name) || 'Unknown Test';
             list.innerHTML += `
                 <div class="card" style="cursor: pointer; text-decoration: none; color: inherit;" onclick="window.location.href='take-custom-test.html?assignmentId=${assign.id}'">
                     <h4>${testName}</h4>

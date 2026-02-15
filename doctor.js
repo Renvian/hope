@@ -142,3 +142,331 @@ async function loadMedications() {
         `;
     });
 }
+
+// --- CUSTOM TESTS FEATURES ---
+
+// Add option row for custom test creation
+function addOptionRow() {
+    const container = document.getElementById('optionsContainer');
+    const row = document.createElement('div');
+    row.className = 'option-row';
+    row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;';
+    row.innerHTML = `
+        <input type="text" placeholder="Option (e.g. Never)" class="opt-text" style="flex: 1;">
+        <input type="number" placeholder="Score" class="opt-score" style="width:100px;">
+    `;
+    container.appendChild(row);
+}
+
+// Add question row for custom test creation
+function addQuestionRow() {
+    const container = document.getElementById('questionsContainer');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'custom-q';
+    input.placeholder = `Question ${container.querySelectorAll('.custom-q').length + 1}`;
+    input.style.cssText = 'margin-bottom: 10px;';
+    container.appendChild(input);
+}
+
+// Save custom test
+async function saveCustomTest() {
+    const testName = document.getElementById('customTestName').value;
+    if (!testName) return alert("Test name is required");
+
+    // Check session first
+    const session = await window.sb.auth.getSession();
+    if (!session.data || !session.data.session) {
+        alert("Please log in first");
+        window.location.href = "login.html";
+        return;
+    }
+
+    const user = await window.sb.auth.getUser();
+    if (!user.data || !user.data.user) {
+        alert("Please log in first");
+        window.location.href = "login.html";
+        return;
+    }
+
+    const currentUserId = user.data.user.id;
+    console.log("Current user ID:", currentUserId);
+
+    // Save test template
+    const { data: test, error: testError } = await window.sb.from('custom_tests')
+        .insert({ test_name: testName, doctor_id: currentUserId }).select().single();
+
+    if (testError) {
+        console.error("Test creation error:", testError);
+        alert("Error creating test: " + testError.message + "\n\n" + 
+              "Common causes:\n" +
+              "1. Tables don't exist - Run the SQL schema in Supabase\n" +
+              "2. RLS is enabled - Disable RLS in Supabase\n" +
+              "3. Check browser console for details");
+        return;
+    }
+
+    if (!test || !test.id) {
+        alert("Test was not created properly. Please try again.");
+        return;
+    }
+
+    // Save Options
+    const optionRows = document.querySelectorAll('.option-row');
+    const options = Array.from(optionRows).map(row => ({
+        test_id: test.id,
+        option_text: row.querySelector('.opt-text').value,
+        score_value: parseInt(row.querySelector('.opt-score').value)
+    })).filter(opt => opt.option_text && !isNaN(opt.score_value));
+
+    if (options.length === 0) {
+        alert("Please add at least one valid scoring option");
+        return;
+    }
+
+    const { error: optionsError } = await window.sb.from('custom_test_options').insert(options);
+    if (optionsError) {
+        console.error("Options insert error:", optionsError);
+        alert("Error saving options: " + optionsError.message);
+        // Try to delete the test we just created
+        await window.sb.from('custom_tests').delete().eq('id', test.id);
+        return;
+    }
+
+    // Save Questions
+    const qInputs = document.querySelectorAll('.custom-q');
+    const questions = Array.from(qInputs).map(input => ({
+        test_id: test.id,
+        question_text: input.value
+    })).filter(q => q.question_text);
+
+    if (questions.length === 0) {
+        alert("Please add at least one question");
+        // Try to clean up
+        await window.sb.from('custom_test_options').delete().eq('test_id', test.id);
+        await window.sb.from('custom_tests').delete().eq('id', test.id);
+        return;
+    }
+
+    const { error: questionsError } = await window.sb.from('custom_test_questions').insert(questions);
+    if (questionsError) {
+        console.error("Questions insert error:", questionsError);
+        alert("Error saving questions: " + questionsError.message);
+        // Try to clean up
+        await window.sb.from('custom_test_options').delete().eq('test_id', test.id);
+        await window.sb.from('custom_tests').delete().eq('id', test.id);
+        return;
+    }
+
+    alert("Custom Test Created Successfully!");
+    
+    // Reset form
+    document.getElementById('customTestName').value = '';
+    document.getElementById('optionsContainer').innerHTML = `
+        <h4>1. Define Scoring Options</h4>
+        <div class="option-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+            <input type="text" placeholder="Option (e.g. Never)" class="opt-text" style="flex: 1;">
+            <input type="number" placeholder="Score" class="opt-score" style="width:100px;">
+        </div>
+    `;
+    document.getElementById('questionsContainer').innerHTML = `
+        <h4>2. Add Questions</h4>
+        <input type="text" class="custom-q" placeholder="Question 1" style="margin-bottom: 10px;">
+    `;
+    
+    // Reload test list
+    if (document.getElementById('testList')) {
+        loadCustomTests();
+    }
+}
+
+// Load all custom tests for the doctor
+async function loadCustomTests() {
+    const list = document.getElementById('testList');
+    const retryBtn = document.getElementById('retryBtn');
+    
+    if (!list) return;
+
+    // Show loading state
+    list.innerHTML = '<p style="color: var(--text-secondary);">Loading your custom tests...</p>';
+    if (retryBtn) retryBtn.style.display = 'none';
+
+    // First check session
+    try {
+        const session = await window.sb.auth.getSession();
+        if (!session.data || !session.data.session) {
+            list.innerHTML = `<p style="color: var(--alert-red);">Please log in to view your custom tests.</p>`;
+            if (retryBtn) retryBtn.style.display = 'inline-block';
+            return;
+        }
+
+        // Refresh session if needed
+        await window.sb.auth.refreshSession();
+    } catch (sessionError) {
+        console.error("Session error:", sessionError);
+        list.innerHTML = `<p style="color: var(--alert-red);">Session error. Please try logging in again.<br><button class="btn" onclick="window.location.href='login.html'" style="margin-top: 10px;">Go to Login</button></p>`;
+        if (retryBtn) retryBtn.style.display = 'inline-block';
+        return;
+    }
+
+    // Get user
+    let user;
+    try {
+        const userResult = await window.sb.auth.getUser();
+        if (!userResult.data || !userResult.data.user) {
+            list.innerHTML = `<p style="color: var(--alert-red);">Unable to get user information. Please log in again.</p>`;
+            return;
+        }
+        user = userResult.data.user;
+    } catch (userError) {
+        console.error("User error:", userError);
+        list.innerHTML = `<p style="color: var(--alert-red);">Error getting user information: ${userError.message}</p>`;
+        return;
+    }
+
+    // Load tests
+    try {
+        const { data: tests, error } = await window.sb
+            .from('custom_tests')
+            .select('*')
+            .eq('doctor_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Database error:", error);
+            list.innerHTML = `<p style="color: var(--alert-red);">Error loading tests: ${error.message}<br><small>Check browser console for details.</small></p>`;
+            if (retryBtn) retryBtn.style.display = 'inline-block';
+            return;
+        }
+
+        if (!tests || tests.length === 0) {
+            list.innerHTML = "<p style='color: var(--text-secondary);'>No custom tests created yet.</p>";
+            return;
+        }
+
+        list.innerHTML = '';
+        tests.forEach(test => {
+            list.innerHTML += `
+                <div class="card" style="margin-bottom: 15px;">
+                    <h4>${test.test_name}</h4>
+                    <small style="color: var(--text-secondary);">Created: ${new Date(test.created_at).toLocaleDateString()}</small>
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-secondary" onclick="assignTestToPatient('${test.id}')" style="margin-right: 10px;">Assign to Patient</button>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (loadError) {
+        console.error("Load error:", loadError);
+        list.innerHTML = `<p style="color: var(--alert-red);">Unexpected error: ${loadError.message}</p>`;
+        if (retryBtn) retryBtn.style.display = 'inline-block';
+    }
+}
+
+// Assign test to patient
+async function assignTestToPatient(testId) {
+    // 1. Get list of patients
+    const { data: patients } = await window.sb.from('patients').select('id, name');
+    
+    // 2. Create a simple prompt or custom modal to select a patient
+    const patientName = prompt("Enter exactly the name of the patient to assign this to:");
+    const target = patients.find(p => p.name === patientName);
+
+    if (target) {
+        await window.sb.from('custom_test_assignments').insert([{
+            test_id: testId,
+            patient_id: target.id,
+            status: 'assigned'
+        }]);
+        alert("Test assigned to " + target.name);
+    } else {
+        alert("Patient not found.");
+    }
+}
+
+// Render custom test graph
+async function renderCustomTestGraph(testId, patientId) {
+    const { data } = await window.sb.from('custom_test_results')
+        .select('total_score, created_at, custom_test_assignments!inner(test_id, patient_id)')
+        .eq('custom_test_assignments.test_id', testId)
+        .eq('custom_test_assignments.patient_id', patientId)
+        .order('created_at', { ascending: true });
+
+    if (!data || data.length === 0) return;
+
+    const canvasId = `graph-${testId}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(r => new Date(r.created_at).toLocaleDateString()),
+            datasets: [{
+                label: 'Total Score',
+                data: data.map(r => r.total_score),
+                borderColor: '#B57EDC',
+                tension: 0.4
+            }]
+        }
+    });
+}
+
+// Load custom graphs for patient profile
+async function loadCustomGraphs(patientId) {
+    const container = document.getElementById('customGraphsContainer');
+    if (!container) return;
+
+    // Get all custom tests
+    const { data: allTests } = await window.sb.from('custom_tests').select('id, test_name');
+    
+    if (!allTests || allTests.length === 0) {
+        container.innerHTML = "<p style='color:#666'>No custom tests available.</p>";
+        return;
+    }
+
+    // For each test, check if patient has results and render graph
+    for (const test of allTests) {
+        const { data: results } = await window.sb.from('custom_test_results')
+            .select('total_score, created_at, custom_test_assignments!inner(test_id, patient_id)')
+            .eq('custom_test_assignments.test_id', test.id)
+            .eq('custom_test_assignments.patient_id', patientId)
+            .order('created_at', { ascending: true });
+
+        if (!results || results.length === 0) continue;
+
+        const canvasId = `graph-${test.id}`;
+        
+        container.innerHTML += `
+            <div class="card">
+                <h4>${test.test_name}</h4>
+                <canvas id="${canvasId}"></canvas>
+            </div>
+        `;
+
+        // Render chart after a small delay to ensure canvas is in DOM
+        setTimeout(() => {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: results.map(r => new Date(r.created_at).toLocaleDateString()),
+                        datasets: [{
+                            label: 'Total Score',
+                            data: results.map(r => r.total_score),
+                            borderColor: '#B57EDC',
+                            tension: 0.4
+                        }]
+                    }
+                });
+            }
+        }, 100);
+    }
+    
+    if (container.innerHTML.trim() === '') {
+        container.innerHTML = "<p style='color:#666'>No custom test results yet.</p>";
+    }
+}

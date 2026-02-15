@@ -467,18 +467,21 @@ async function loadCustomGraphs(patientId) {
             return;
         }
 
-        // For each test, check if patient has results and render graph
+        // Collect all graphs to render (one per test type)
+        const graphsToRender = [];
         let hasResults = false;
         
         for (const test of allTests) {
             // Try to fetch results with relationship first
+            let results = null;
+            
             const result1 = await window.sb.from('custom_test_results')
                 .select('id, total_score, created_at, custom_test_assignments!inner(id, test_id, patient_id)')
                 .eq('custom_test_assignments.test_id', test.id)
                 .eq('custom_test_assignments.patient_id', patientId)
                 .order('created_at', { ascending: true });
 
-            let results = result1.data;
+            results = result1.data;
             
             // Fallback: use separate queries if relationship fails
             if (result1.error || !results) {
@@ -500,53 +503,87 @@ async function loadCustomGraphs(patientId) {
                 }
             }
 
-            if (!results || results.length === 0) continue;
+            // Only add to render queue if there are results
+            if (results && results.length > 0) {
+                hasResults = true;
+                graphsToRender.push({
+                    testId: test.id,
+                    testName: test.test_name,
+                    results: results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                });
+            }
+        }
+        
+        // Clear container only once before adding all graphs
+        if (!hasResults) {
+            container.innerHTML = "<p style='color:#666'>No custom test results yet.</p>";
+            return;
+        }
 
-            hasResults = true;
-            const canvasId = `graph-${test.id}`;
-            
-            container.innerHTML += `
+        // Build all HTML first
+        let htmlContent = '';
+        graphsToRender.forEach(graph => {
+            const canvasId = `graph-${graph.testId}`;
+            htmlContent += `
                 <div class="card">
-                    <h4>${test.test_name}</h4>
+                    <h4>${graph.testName}</h4>
                     <canvas id="${canvasId}"></canvas>
                 </div>
             `;
-
-            // Render chart after a small delay to ensure canvas is in DOM
+        });
+        
+        // Insert all HTML at once
+        container.innerHTML = htmlContent;
+        
+        // Now render all charts
+        graphsToRender.forEach(graph => {
+            const canvasId = `graph-${graph.testId}`;
+            
+            // Small timeout to ensure canvas is in DOM
             setTimeout(() => {
                 const canvas = document.getElementById(canvasId);
                 if (canvas && typeof Chart !== 'undefined') {
-                    const ctx = canvas.getContext('2d');
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: results.map(r => new Date(r.created_at).toLocaleDateString()),
-                            datasets: [{
-                                label: 'Score',
-                                data: results.map(r => r.total_score),
-                                borderColor: '#B57EDC',
-                                backgroundColor: 'rgba(181, 126, 220, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { display: true }
+                    try {
+                        const ctx = canvas.getContext('2d');
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: graph.results.map(r => new Date(r.created_at).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Score',
+                                    data: graph.results.map(r => r.total_score),
+                                    borderColor: '#B57EDC',
+                                    backgroundColor: 'rgba(181, 126, 220, 0.1)',
+                                    tension: 0.4,
+                                    fill: true,
+                                    pointBackgroundColor: '#B57EDC',
+                                    pointBorderColor: '#fff',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4
+                                }]
                             },
-                            scales: {
-                                y: { beginAtZero: true }
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                plugins: {
+                                    legend: { display: true }
+                                },
+                                scales: {
+                                    y: { 
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1
+                                        }
+                                    }
+                                }
                             }
-                        }
-                    });
+                        });
+                    } catch (chartError) {
+                        console.error("Error rendering chart for test", graph.testId, ":", chartError);
+                    }
                 }
-            }, 100);
-        }
-        
-        if (!hasResults) {
-            container.innerHTML = "<p style='color:#666'>No custom test results yet.</p>";
-        }
+            }, 50);
+        });
     } catch (error) {
         console.error("Error loading custom graphs:", error);
         container.innerHTML = "<p style='color:#d9534f'>Error loading test results: " + error.message + "</p>";
